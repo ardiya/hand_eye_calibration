@@ -14,6 +14,7 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/image_encodings.h>
 #pragma GCC diagnostic pop
 
@@ -115,14 +116,19 @@ int main(int argc, char** argv) {
   for (const rosbag::MessageInstance& message : bag_view) {
     sensor_msgs::ImageConstPtr image_message =
         message.instantiate<sensor_msgs::Image>();
-    LOG_IF(FATAL, !image_message) << "Can only process image messages.";
+    sensor_msgs::CompressedImageConstPtr compressed_message =
+        message.instantiate<sensor_msgs::CompressedImage>();
+    LOG_IF(FATAL, !image_message && !compressed_message) << "Can only process image or compressedimage messages.";
 
-    timestamps.push_back(image_message->header.stamp.toSec());
+    if (image_message)
+      timestamps.push_back(image_message->header.stamp.toSec());
+    else 
+      timestamps.push_back(compressed_message->header.stamp.toSec());
 
     // Convert image to cv::Mat.
     cv::Mat image;
-    if ((image_message->encoding == "16UC1") ||
-        (image_message->encoding == "mono16")) {
+    if (image_message &&
+        (image_message->encoding == "16UC1" || image_message->encoding == "mono16")) {
       sensor_msgs::Image img;
       img.header = image_message->header;
       img.height = image_message->height;
@@ -149,7 +155,7 @@ int main(int argc, char** argv) {
       }
       CHECK(cv_ptr);
       image = cv_ptr->image;
-    } else {
+    } else if(image_message) {
       cv_bridge::CvImageConstPtr cv_ptr;
       try {
         cv_ptr = cv_bridge::toCvShare(image_message,
@@ -159,6 +165,18 @@ int main(int argc, char** argv) {
       }
       CHECK(cv_ptr);
       image = cv_ptr->image;
+    } else if(compressed_message) {
+      cv_bridge::CvImageConstPtr cv_ptr;
+      try {
+        cv_ptr = cv_bridge::toCvCopy(compressed_message,
+                                      sensor_msgs::image_encodings::MONO8);
+      } catch (const cv_bridge::Exception& e) {
+        LOG(FATAL) << "cv_bridge exception: " << e.what();
+      }
+      CHECK(cv_ptr);
+      image = cv_ptr->image;
+    } else {
+      LOG(FATAL) << "Can only process image or compressedimage messages.";
     }
 
     // Extract calibration targets.

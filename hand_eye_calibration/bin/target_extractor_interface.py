@@ -9,7 +9,7 @@ class TargetExtractorConfig(object):
   bag_file_name = ""
   calib_file_camera = "../calib/sr300_sim.yaml"
   topic = "/camera/rgb/image_raw"
-  draw_extraction = True
+  draw_extraction = False
   camera_pose_T_C_G_output_file = "sequenced_camera_poses.csv"
   camera_pose_T_C_G_output_file_timestamped = "timestamped_camera_poses.csv"
   alsologtostderr = True
@@ -75,6 +75,9 @@ if __name__ == "__main__":
   parser.add_argument(
       '--output_file', required=True,
       help='The output csv file name containing the stamped camera poses.')
+  parser.add_argument(
+      '--draw-extraction', default=False,
+      help='To draw extracted aprilgrid or not.')
   args = parser.parse_args()
 
   bag_path = args.bag
@@ -97,5 +100,6 @@ if __name__ == "__main__":
   te_config.april_tag_gap_size_m = yaml_content['april_tag_gap_size_m']
   te_config.camera_pose_T_C_G_output_file = "sequenced_" + args.output_file
   te_config.camera_pose_T_C_G_output_file_timestamped = args.output_file
+  te_config.draw_extraction = args.draw_extraction
 
   call_target_extractor(te_config)
